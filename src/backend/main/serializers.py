@@ -68,3 +68,20 @@ class ProductSerializer(serializers.ModelSerializer):
                   'product_image_url', 'category', 'category_title',
                   'product_brand_title', 'product_date_of_create',
                   'product_is_active']
+
+    def validate_product_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Цена не может быть отрицательной")
+        elif value > 100000000:
+            raise serializers.ValidationError("Цена не может быть такой большой (не больше 100кк)")
+        return value
+
+    def validate_product_quantity_in_stock(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Количество не может быть отрицательным")
+        return value
+
+    def validate_product_title(self, value):
+        if not value or value.strip() == '':
+            raise serializers.ValidationError("Название товара не может быть пустым")
+        return value

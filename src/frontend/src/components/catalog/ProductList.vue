@@ -96,6 +96,7 @@
             <v-col cols="12" sm="6" md="3">
               <v-text-field
                 v-model.number="filters.minPrice"
+                @update:model-value="(val) => catalogStore.updateFilters({ minPrice: val })"
                 label="Цена от"
                 type="number"
                 prefix="₽"
@@ -108,6 +109,7 @@
             <v-col cols="12" sm="6" md="3">
               <v-text-field
                 v-model.number="filters.maxPrice"
+                @update:model-value="(val) => catalogStore.updateFilters({ maxPrice: val })"
                 label="Цена до"
                 type="number"
                 prefix="₽"
@@ -125,7 +127,7 @@
                 clearable
                 variant="outlined"
                 density="comfortable"
-                @update:model-value="applyFilters"
+                @update:model-value="(val) => catalogStore.updateFilters({ brand: val })"
               ></v-select>
             </v-col>
             
@@ -137,7 +139,7 @@
                 clearable
                 variant="outlined"
                 density="comfortable"
-                @update:model-value="applyFilters"
+                @update:model-value="(val) => catalogStore.updateFilters({ availability: val })"
               ></v-select>
             </v-col>
             
@@ -217,7 +219,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { useCatalogStore } from '@/store/catalog'
 import { useAuthStore } from '@/store/auth'
 import { useRouter } from 'vue-router'
@@ -231,23 +233,29 @@ const router = useRouter()
 const showFiltersAndSort = computed(() => {
   return authStore.isManager || authStore.isAdmin
 })
-
 const isAdmin = computed(() => authStore.isAdmin)
 
 // Локальное состояние компонента
 const showFilters = ref(false)
 const showSortMenu = ref(false)
-const searchQuery = ref('')
-const currentPage = ref(1)
-const sortBy = ref('default')
 
-// Фильтры
-const filters = reactive({
-  minPrice: null,
-  maxPrice: null,
-  brand: null,
-  availability: null
+const searchQuery = computed({
+  get: () => catalogStore.filters.search,
+  set: (value) => catalogStore.updateFilters({ search: value })
 })
+const sortBy = computed({
+  get: () => catalogStore.sortBy,
+  set: (value) => catalogStore.updateSort(value)
+})
+
+const filters = computed(() => catalogStore.filters)
+
+const products = computed(() => catalogStore.products)
+const loading = computed(() => catalogStore.loading)
+const pagination = computed(() => catalogStore.pagination)
+const activeFiltersCount = computed(() => catalogStore.activeFiltersCount)
+const totalPages = computed(() => pagination.value?.totalPages || 1)
+const totalProducts = computed(() => pagination.value?.totalProducts || 0)
 
 const sortOptions = [
   { label: 'По умолчанию', value: 'default' },
@@ -264,27 +272,6 @@ const availabilityOptions = [
   { title: 'Мало', value: 'low_stock' }
 ]
 
-// Вычисляемые свойства из стора
-const products = computed(() => catalogStore.products)
-const categories = computed(() => catalogStore.categories)
-const loading = computed(() => catalogStore.loading)
-const pagination = computed(() => catalogStore.pagination)
-
-const activeFiltersCount = computed(() => {
-  let count = 0
-  if (filters.category) count++
-  if (filters.minPrice) count++
-  if (filters.maxPrice) count++
-  if (filters.brand) count++
-  if (filters.availability) count++
-  if (searchQuery.value) count++
-  return count
-})
-
-const totalProducts = computed(() => pagination.value?.totalProducts || 0)
-const totalPages = computed(() => pagination.value?.totalPages || 1)
-console.log(pagination.value)
-
 const brands = computed(() => {
   const brandSet = new Set()
   products.value.forEach(product => {
@@ -295,73 +282,32 @@ const brands = computed(() => {
   return Array.from(brandSet).sort()
 })
 
-// Загрузка товаров и категорий
-onMounted(async () => {
-  await catalogStore.fetchCategories()
-  await fetchProducts()
-})
-
-// Функция для загрузки продуктов с фильтрами
-const fetchProducts = async () => {
-  const params = {
-    page: currentPage.value,
-    search: searchQuery.value,
-    category: filters.category,
-    min_price: filters.minPrice,
-    max_price: filters.maxPrice,
-    brand: filters.brand,
-    availability: filters.availability,
-    sort: sortBy.value !== 'default' ? sortBy.value : undefined
-  }
-  
-  // чтобы не было пустых значений
-  Object.keys(params).forEach(key => {
-    if (params[key] === undefined || params[key] === null || params[key] === '') {
-      delete params[key]
-    }
-  })
-  
-  console.log("Запрос на сервер с параметрами:", params)
-  await catalogStore.fetchProducts(params)
-}
-
 const handleSearch = debounce(() => {
-  currentPage.value = 1
-  fetchProducts()
+  catalogStore.fetchProducts()
 }, 500)
 
 const clearSearch = () => {
-  searchQuery.value = ''
-  currentPage.value = 1
-  fetchProducts()
+  catalogStore.updateFilters({ search: '' })
+  catalogStore.fetchProducts()
 }
 
 const applyFilters = () => {
-  currentPage.value = 1
-  fetchProducts()
+  catalogStore.fetchProducts()
 }
 
 const applySort = () => {
   showSortMenu.value = false
-  fetchProducts()
+  catalogStore.fetchProducts()
 }
 
 const clearAllFilters = () => {
-  searchQuery.value = ''
-  filters.category = null
-  filters.minPrice = null
-  filters.maxPrice = null
-  filters.brand = null
-  filters.availability = null
-  sortBy.value = 'default'
-  
-  currentPage.value = 1
-  fetchProducts()
+  catalogStore.clearFilters()
+  catalogStore.fetchProducts()
 }
 
 const handlePageChange = (page) => {
-  currentPage.value = page
-  fetchProducts()
+  catalogStore.setPage(page)
+  catalogStore.fetchProducts()
 }
 
 const handleAddToCart = (product) => {
@@ -371,4 +317,26 @@ const handleAddToCart = (product) => {
 const goToProductCreate = () => {
   router.push('/dashboard/products/create')
 }
+
+watch(
+  () => filters.value.minPrice,
+  () => applyFilters()
+)
+watch(
+  () => filters.value.maxPrice,
+  () => applyFilters()
+)
+watch(
+  () => filters.value.brand,
+  () => applyFilters()
+)
+watch(
+  () => filters.value.availability,
+  () => applyFilters()
+)
+
+onMounted(async () => {
+  await catalogStore.fetchCategories()
+  await catalogStore.fetchProducts()
+})
 </script>

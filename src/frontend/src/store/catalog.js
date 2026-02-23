@@ -13,10 +13,54 @@ export const useCatalogStore = defineStore('catalog', {
       pageSize: 20
     },
     loading: false,
-    error: null
+    error: null,
+
+    filters: {
+      search: '',
+      category: null,
+      minPrice: null,
+      maxPrice: null,
+      brand: null,
+      availability: null
+    },
+    sortBy: 'default'
   }),
 
   getters: {
+    activeFiltersCount: (state) => {
+      let count = 0
+      const f = state.filters
+      if (f.search) count++
+      if (f.category) count++
+      if (f.minPrice != null) count++
+      if (f.maxPrice != null) count++
+      if (f.brand) count++
+      if (f.availability) count++
+      return count
+    },
+
+    apiParams: (state) => {
+      const params = {
+        page: state.pagination.currentPage,
+        search: state.filters.search || undefined,
+        category: state.filters.category || undefined,
+        min_price: state.filters.minPrice || undefined,
+        max_price: state.filters.maxPrice || undefined,
+        brand: state.filters.brand || undefined,
+        availability: state.filters.availability || undefined,
+        sort: state.sortBy !== 'default' ? state.sortBy : undefined
+      }
+      
+      // Удаляем пустые значения
+      Object.keys(params).forEach(key => {
+        if (params[key] === undefined || params[key] === null || params[key] === '') {
+          delete params[key]
+        }
+      })
+      
+      return params
+    },
+
     categoryTree: (state) => {
       const buildTree = (parentId = null) => {
         const children = state.categories
@@ -39,13 +83,16 @@ export const useCatalogStore = defineStore('catalog', {
   },
 
   actions: {
-    async fetchProducts(params = {}) {
+    async fetchProducts(overrideParams = {}) {
       this.loading = true
       this.error = null
 
       try {
+        // Объединяем параметры из store с возможными переопределениями
+        const params = { ...this.apiParams, ...overrideParams }
+        
         const response = await api.get('/products/', { params })
-        console.log(response.data)
+        
         this.products = response.data.results || response.data
         this.pagination = {
           currentPage: response.data.current_page || 1,
@@ -59,6 +106,10 @@ export const useCatalogStore = defineStore('catalog', {
       } finally {
         this.loading = false
       }
+    },
+
+    async fetchProductsWithDebounce() {
+      return this.fetchProducts()
     },
 
     async fetchCategories() {
@@ -142,6 +193,33 @@ export const useCatalogStore = defineStore('catalog', {
 
     clearError() {
       this.error = null
-    }
+    },
+
+    updateFilters(newFilters) {
+      this.filters = { ...this.filters, ...newFilters }
+      this.pagination.currentPage = 1
+    },
+
+    updateSort(sortValue) {
+      this.sortBy = sortValue
+      this.pagination.currentPage = 1
+    },
+
+    clearFilters() {
+      this.filters = {
+        search: '',
+        category: null,
+        minPrice: null,
+        maxPrice: null,
+        brand: null,
+        availability: null
+      }
+      this.sortBy = 'default'
+      this.pagination.currentPage = 1
+    },
+
+    setPage(page) {
+      this.pagination.currentPage = page
+    },
   }
 })
