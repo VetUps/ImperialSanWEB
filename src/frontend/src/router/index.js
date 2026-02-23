@@ -1,6 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 
+import DashboardView from '@/views/DashboardView.vue'
+import DashboardHome from '@/views/DashboardHome.vue'
+import DashboardProducts from '@/components/dashboard/DashboardProducts.vue'
+import DashboardProductEdit from '@/components/dashboard/DashboardProductEdit.vue'
+
 const routes = [
   {
     path: '/',
@@ -26,12 +31,6 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
-    path: '/dashboard',
-    name: 'dashboard',
-    component: () => import('@/views/DashboardView.vue'),
-    meta: { requiresAuth: true, roles: ['Manager', 'Admin'] }
-  },
-  {
     path: '/profile',
     name: 'profile',
     component: () => import('@/views/ProfileView.vue'),
@@ -41,6 +40,36 @@ const routes = [
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue')
+  },
+  {
+    path: '/dashboard',
+    component: DashboardView,
+    meta: { requiresAuth: true, roles: ['Manager', 'Admin'] },
+    children: [
+      {
+        path: '',
+        name: 'dashboard-home',
+        component: DashboardHome
+      },
+      {
+        path: 'products',
+        name: 'dashboard-products',
+        component: DashboardProducts,
+        meta: { roles: ['Admin'] }
+      },
+      {
+        path: 'products/create',
+        name: 'dashboard-product-create',
+        component: DashboardProductEdit,
+        meta: { roles: ['Admin'] }
+      },
+      {
+        path: 'products/edit/:id',
+        name: 'dashboard-product-edit',
+        component: DashboardProductEdit,
+        meta: { roles: ['Admin'] }
+      },
+    ]
   }
 ]
 

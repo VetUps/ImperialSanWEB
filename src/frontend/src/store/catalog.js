@@ -108,7 +108,7 @@ export const useCatalogStore = defineStore('catalog', {
       }
     },
 
-    async fetchProductsWithDebounce() {
+    async fetchProductsWithDebounce() { 
       return this.fetchProducts()
     },
 
