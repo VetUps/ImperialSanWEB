@@ -45,11 +45,12 @@ export const useCatalogStore = defineStore('catalog', {
 
       try {
         const response = await api.get('/products/', { params })
+        console.log(response.data)
         this.products = response.data.results || response.data
         this.pagination = {
           currentPage: response.data.current_page || 1,
           totalPages: response.data.total_pages || 1,
-          totalProducts: response.data.count || 0,
+          totalProducts: response.data.total_objects || 0,
           pageSize: response.data.page_size || 20
         }
       } catch (error) {
@@ -136,19 +137,6 @@ export const useCatalogStore = defineStore('catalog', {
         return { success: false, error: this.error }
       } finally {
         this.loading = false
-      }
-    },
-
-    setFilters(filters) {
-      this.filters = { ...this.filters, ...filters }
-    },
-
-    clearFilters() {
-      this.filters = {
-        category: null,
-        search: '',
-        minPrice: null,
-        maxPrice: null
       }
     },
 

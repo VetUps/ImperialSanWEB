@@ -42,22 +42,6 @@
           class="mb-3"
         ></v-text-field>
 
-        <div class="d-flex justify-space-between align-center mb-6">
-          <v-checkbox
-            v-model="form.remember"
-            label="Запомнить меня"
-            density="compact"
-            hide-details
-          ></v-checkbox>
-
-          <router-link
-            to="/forgot-password"
-            class="text-primary text-decoration-none"
-          >
-            Забыли пароль?
-          </router-link>
-        </div>
-
         <v-btn
           type="submit"
           color="primary"
@@ -70,6 +54,19 @@
           Войти
         </v-btn>
       </v-form>
+
+      <v-btn
+          @click="handleGuest"
+          color="primary"
+          size="large"
+          class="mt-2"
+          block
+          :loading="loading"
+          :disabled="loading"
+        >
+          <v-icon left>mdi-incognito</v-icon>
+          Режим гостя
+      </v-btn>
 
       <v-divider class="my-6"></v-divider>
 
@@ -133,6 +130,10 @@ const handleSubmit = async () => {
       router.push('/catalog')
     }
   }
+}
+
+const handleGuest = async () => {
+  router.push('/catalog')
 }
 
 const clearError = () => {

@@ -38,10 +38,13 @@
       "parser": "@babel/eslint-parser"
     },
     "rules": {
-      "no-unused-vars": ["warn", {
-        "args": "after-used",
-        "ignoreRestSiblings": true
-      }]
+      "no-unused-vars": [
+        "warn",
+        {
+          "args": "after-used",
+          "ignoreRestSiblings": true
+        }
+      ]
     }
   },
   "browserslist": [

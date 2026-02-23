@@ -91,21 +91,6 @@
           </v-col>
         </v-row>
 
-        <v-checkbox
-          v-model="form.agreeTerms"
-          :rules="[rules.required]"
-          class="mb-6"
-        >
-          <template v-slot:label>
-            <div>
-              Я согласен с
-              <router-link to="/terms" class="text-primary text-decoration-none">
-                условиями использования
-              </router-link>
-            </div>
-          </template>
-        </v-checkbox>
-
         <v-btn
           type="submit"
           color="primary"

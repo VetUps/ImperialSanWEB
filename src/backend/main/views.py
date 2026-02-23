@@ -1,3 +1,5 @@
+import math
+
 from rest_framework import viewsets, permissions
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
@@ -18,15 +20,24 @@ from rest_framework.viewsets import ViewSet
 from .serializers import LoginSerializer, RegisterSerializer
 
 
-
-class StandardPagination(PageNumberPagination):
+class CustomPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'page_size'
-    max_page_size = 100
 
-class ProductViewSet(viewsets.ModelViewSet):  # Изменил на ModelViewSet для полного CRUD
+    def get_paginated_response(self, data):
+        return Response({
+            'total_objects': self.page.paginator.count,
+            'total_pages': math.ceil(self.page.paginator.count / self.page_size),
+            'current_page': self.page.number,
+            'next': self.get_next_link(),
+            'previous': self.get_previous_link(),
+            'results': data
+        })
+
+
+class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
-    pagination_class = StandardPagination
+    pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['category']  # Простая фильтрация по категории
 
@@ -104,12 +115,13 @@ class ProductViewSet(viewsets.ModelViewSet):  # Изменил на ModelViewSet
         """
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdmin()]
-        return [permissions.IsAuthenticated()]
+        return []
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+
 
 class UserViewSet(ViewSet):
     @extend_schema(

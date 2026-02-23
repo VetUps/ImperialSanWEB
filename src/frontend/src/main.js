@@ -35,9 +35,7 @@ const vuetify = createVuetify({
   components,
   directives,
   icons: {
-    defaultSet: 'mdi',
-    aliases,
-    sets: { mdi }
+    iconfont: 'mdi'
   },
   theme: {
     defaultTheme: 'imperialSanTheme',

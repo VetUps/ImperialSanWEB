@@ -91,17 +91,6 @@
         <v-card-text>
           <v-row>
             <v-col cols="12" sm="6" md="3">
-              <v-select
-                v-model="filters.category"
-                :items="categories"
-                item-title="category_title"
-                item-value="category_id"
-                label="Категория"
-                clearable
-                variant="outlined"
-                density="comfortable"
-                @update:model-value="applyFilters"
-              ></v-select>
             </v-col>
             
             <v-col cols="12" sm="6" md="3">
@@ -195,7 +184,6 @@
         <ProductCard
           :product="product"
           @add-to-cart="handleAddToCart"
-          @toggle-favorite="handleToggleFavorite"
         />
       </v-col>
     </v-row>
@@ -240,7 +228,6 @@ const catalogStore = useCatalogStore()
 const authStore = useAuthStore()
 const router = useRouter()
 
-// Используем стор напрямую без storeToRefs
 const showFiltersAndSort = computed(() => {
   return authStore.isManager || authStore.isAdmin
 })
@@ -254,9 +241,8 @@ const searchQuery = ref('')
 const currentPage = ref(1)
 const sortBy = ref('default')
 
-// Фильтры (передаются на сервер)
+// Фильтры
 const filters = reactive({
-  category: null,
   minPrice: null,
   maxPrice: null,
   brand: null,
@@ -297,6 +283,7 @@ const activeFiltersCount = computed(() => {
 
 const totalProducts = computed(() => pagination.value?.totalProducts || 0)
 const totalPages = computed(() => pagination.value?.totalPages || 1)
+console.log(pagination.value)
 
 const brands = computed(() => {
   const brandSet = new Set()
@@ -308,7 +295,7 @@ const brands = computed(() => {
   return Array.from(brandSet).sort()
 })
 
-// Загрузка данных при монтировании
+// Загрузка товаров и категорий
 onMounted(async () => {
   await catalogStore.fetchCategories()
   await fetchProducts()
@@ -327,7 +314,7 @@ const fetchProducts = async () => {
     sort: sortBy.value !== 'default' ? sortBy.value : undefined
   }
   
-  // Убираем пустые значения
+  // чтобы не было пустых значений
   Object.keys(params).forEach(key => {
     if (params[key] === undefined || params[key] === null || params[key] === '') {
       delete params[key]
@@ -338,7 +325,6 @@ const fetchProducts = async () => {
   await catalogStore.fetchProducts(params)
 }
 
-// Обработчики событий
 const handleSearch = debounce(() => {
   currentPage.value = 1
   fetchProducts()
@@ -379,11 +365,7 @@ const handlePageChange = (page) => {
 }
 
 const handleAddToCart = (product) => {
-  console.log('Add to cart:', product)
-}
-
-const handleToggleFavorite = ({ product, isFavorite }) => {
-  console.log('Toggle favorite:', product, isFavorite)
+  console.log('Добавлено в корзину:', product)
 }
 
 const goToProductCreate = () => {

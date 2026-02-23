@@ -84,31 +84,23 @@
         variant="tonal"
         size="small"
         @click.stop="addToCart"
-        :disabled="product.product_quantity_in_stock === 0"
+        :disabled="product.product_quantity_in_stock === 0 || !authStore.$state.isAuthenticated"
       >
         <v-icon left>mdi-cart-plus</v-icon>
         В корзину
       </v-btn>
 
       <v-spacer></v-spacer>
-
-      <v-btn
-        icon
-        size="small"
-        variant="text"
-        @click.stop="toggleFavorite"
-      >
-        <v-icon :color="isFavorite ? 'red' : 'grey'">
-          {{ isFavorite ? 'mdi-heart' : 'mdi-heart-outline' }}
-        </v-icon>
-      </v-btn>
     </v-card-actions>
   </v-card>
 </template>
 
 <script setup>
-import { ref, computed, defineEmits, defineProps } from 'vue'
+import { computed, defineEmits, defineProps } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/store/auth'
+
+const authStore = useAuthStore()
 
 const props = defineProps({
   product: {
@@ -123,8 +115,6 @@ const props = defineProps({
 
 const emit = defineEmits(['add-to-cart', 'toggle-favorite'])
 const router = useRouter()
-
-const isFavorite = ref(false)
 
 const imageUrl = computed(() => {
   return props.product.product_image_url ||
@@ -142,12 +132,6 @@ const goToProduct = () => {
 const addToCart = (event) => {
   event.stopPropagation()
   emit('add-to-cart', props.product)
-}
-
-const toggleFavorite = (event) => {
-  event.stopPropagation()
-  isFavorite.value = !isFavorite.value
-  emit('toggle-favorite', { product: props.product, isFavorite: isFavorite.value })
 }
 </script>
 

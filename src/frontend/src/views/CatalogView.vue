@@ -1,7 +1,7 @@
 <template>
   <v-container fluid class="pa-4">
     <v-row>
-      <!-- Сайдбар с фильтрами - только для менеджеров и администраторов -->
+      <!-- Фильтры (по категориям) -->
       <v-col cols="12" md="3" v-if="showFiltersAndSort">
         <CategoryFilter @filter="handleCategoryFilter" />
         
@@ -18,7 +18,7 @@
               Страница: {{ currentPage }} из {{ totalPages }}
             </div>
             
-            <!-- Текущие фильтры (только если есть активные) -->
+            <!-- Текущие фильтры -->
             <div v-if="activeFiltersCount > 0" class="mt-4">
               <div class="text-caption font-weight-bold mb-1">Активные фильтры:</div>
               <v-chip
@@ -47,7 +47,6 @@
           </v-col>
         </v-row>
         
-        <!-- Информация о доступности фильтров для обычных пользователей -->
         <v-alert
           v-if="!showFiltersAndSort"
           type="info"
@@ -55,15 +54,12 @@
           class="mb-4"
         >
           <div class="d-flex align-center">
-            <v-icon class="mr-2">mdi-information</v-icon>
             <span>
               Фильтрация и сортировка доступны только менеджерам и администраторам.
-              Для просмотра полного функционала обратитесь к администратору.
             </span>
           </div>
         </v-alert>
         
-        <!-- Список товаров -->
         <ProductList />
       </v-col>
     </v-row>
@@ -74,7 +70,6 @@
 import { computed } from 'vue'
 import { useCatalogStore } from '@/store/catalog'
 import { useAuthStore } from '@/store/auth'
-import { storeToRefs } from 'pinia'
 import CategoryFilter from '@/components/catalog/CategoryFilter.vue'
 import ProductList from '@/components/catalog/ProductList.vue'
 
@@ -137,10 +132,14 @@ const activeFilters = computed(() => {
 
 const handleCategoryFilter = (categoryId) => {
   console.log(`Выбранная категория: ${categoryId}`)
+  const params = {
+  }
+
   catalogStore.setFilters({ category: categoryId })
+  catalogStore.fetchProducts(params)
 }
 
-const clearFilter = (filterType) => {
-  catalogStore.setFilters({ [filterType]: null })
+const clearFilter = () => {
+  catalogStore.fetchProducts()
 }
 </script>

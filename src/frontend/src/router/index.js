@@ -23,7 +23,7 @@ const routes = [
     path: '/catalog',
     name: 'catalog',
     component: () => import('@/views/CatalogView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: false }
   },
   {
     path: '/dashboard',

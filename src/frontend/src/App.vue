@@ -42,13 +42,6 @@ const showHeader = computed(() => {
 const showNotification = ref(false)
 const notificationMessage = ref('')
 const notificationColor = ref('success')
-
-// Слушаем изменения маршрута для закрытия меню на мобильных
-watch(route, () => {
-  if (window.innerWidth < 960) {
-    drawer.value = false
-  }
-})
 </script>
 
 <style>

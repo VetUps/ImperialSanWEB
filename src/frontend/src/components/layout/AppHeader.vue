@@ -1,10 +1,5 @@
 <template>
   <v-app-bar color="primary" dark app elevation="3">
-    <v-app-bar-nav-icon
-      v-if="isMobile"
-      @click="$emit('toggle-drawer')"
-    ></v-app-bar-nav-icon>
-
     <v-toolbar-title class="d-flex align-center">
       <v-icon class="mr-2" size="large">mdi-water-pump</v-icon>
       <span class="font-weight-bold text-h6">Imperial San</span>
@@ -12,8 +7,7 @@
 
     <v-spacer></v-spacer>
 
-    <!-- Навигация для десктопа -->
-    <div v-if="!isMobile" class="d-flex align-center">
+    <div class="d-flex align-center">
       <v-btn
         v-for="item in navItems"
         :key="item.to"
@@ -26,19 +20,19 @@
       </v-btn>
     </div>
 
-    <v-divider vertical class="mx-4" v-if="!isMobile"></v-divider>
+    <v-divider vertical class="mx-4"></v-divider>
 
     <!-- Информация пользователя -->
     <div v-if="isAuthenticated" class="d-flex align-center">
       <v-chip
         color="white"
-        class="mr-4 text-primary font-weight-medium"
+        class="mr-4 text-white font-weight-medium"
         :prepend-icon="getRoleIcon"
       >
         <template v-slot:prepend>
           <v-icon :color="getRoleColor">{{ getRoleIcon }}</v-icon>
         </template>
-        {{ fullName }}
+        <span class="font-weight-bold text-h6">{{ fullName }}</span>
         <v-tooltip activator="parent" location="bottom">
           {{ getUserRoleText }}
         </v-tooltip>
@@ -101,13 +95,10 @@ import { useAuthStore } from '@/store/auth'
 import { storeToRefs } from 'pinia'
 import { useDisplay } from 'vuetify'
 
-const { mobile } = useDisplay()
 const authStore = useAuthStore()
 const { isAuthenticated, fullName, userRole, initials } = storeToRefs(authStore)
 
 const emit = defineEmits(['toggle-drawer'])
-
-const isMobile = computed(() => mobile.value)
 
 const navItems = computed(() => {
   const items = [
