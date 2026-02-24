@@ -1,6 +1,12 @@
-<!-- views/dashboard/DashboardProducts.vue -->
 <template>
   <v-container fluid class="pa-4">
+    <v-row>
+      <v-col>
+        <router-link to="/dashboard" class="text-decoration-none text-primary">
+          <v-icon>mdi-arrow-left</v-icon> Назад к панели управления
+        </router-link>
+      </v-col>
+    </v-row>
     <v-row class="mb-4">
       <v-col>
         <h1 class="text-h4 font-weight-bold text-primary">
@@ -107,12 +113,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useCatalogStore } from '@/store/catalog'
-import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const catalogStore = useCatalogStore()
-const { products, loading } = storeToRefs(catalogStore)
+
+const products = computed(() => catalogStore.products)
+const loading = computed(() => catalogStore.loading)
 
 const search = ref('')
 const showDeleteDialog = ref(false)
@@ -143,7 +150,7 @@ const formatPrice = (price) => {
 }
 
 onMounted(async () => {
-  await catalogStore.fetchProducts({ page: 1 })
+  await catalogStore.fetchProducts({ page: 1, is_all: true })
 })
 
 const goToCreate = () => {
@@ -164,7 +171,6 @@ const deleteProduct = async () => {
   const result = await catalogStore.deleteProduct(productToDelete.value.product_id)
   if (result.success) {
     showDeleteDialog.value = false
-    productToDelete.value = null
   }
 }
 </script>

@@ -21,7 +21,8 @@ export const useCatalogStore = defineStore('catalog', {
       minPrice: null,
       maxPrice: null,
       brand: null,
-      availability: null
+      availability: null,
+      is_all: false
     },
     sortBy: 'default'
   }),
@@ -48,7 +49,8 @@ export const useCatalogStore = defineStore('catalog', {
         max_price: state.filters.maxPrice || undefined,
         brand: state.filters.brand || undefined,
         availability: state.filters.availability || undefined,
-        sort: state.sortBy !== 'default' ? state.sortBy : undefined
+        sort: state.sortBy !== 'default' ? state.sortBy : undefined,
+        is_all: state.is_all
       }
       
       // Удаляем пустые значения
@@ -181,7 +183,7 @@ export const useCatalogStore = defineStore('catalog', {
 
       try {
         await api.delete(`/products/${id}/`)
-        this.products = this.products.filter(p => p.product_id !== id)
+        this.fetchProducts()
         return { success: true }
       } catch (error) {
         this.error = 'Ошибка удаления товара'

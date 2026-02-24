@@ -15,9 +15,9 @@
                   block
                   size="large"
                   prepend-icon="mdi-plus"
-                  to="/dashboard/products/create"
+                  to="/dashboard/products"
                 >
-                  Добавить товар
+                  Управление товарами
                 </v-btn>
               </v-col>
               <v-col cols="12" sm="6" md="3">
@@ -95,7 +95,7 @@ import { ref, onMounted } from 'vue'
 const recentOrders = ref([])
 
 onMounted(async () => {
-  // Загрузка статистики (заглушка)
+  // заглушка
   recentOrders.value = [
     {
       order_id: 1001,
@@ -105,7 +105,6 @@ onMounted(async () => {
       order_status: 'В обработке',
       order_price: 12500
     },
-    // ... остальные заказы
   ]
 })
 

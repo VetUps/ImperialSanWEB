@@ -5,9 +5,9 @@
     </v-card-title>
 
     <v-card-text>
-      <v-form ref="form" v-model="valid" lazy-validation @submit.prevent="submitForm">
+      <v-form ref="formRef" v-model="valid" lazy-validation @submit.prevent="submitForm">
         <v-row>
-          <v-col cols="12">
+          <v-col cols="12" class="mt-4">
             <v-text-field
               v-model="form.product_title"
               label="Название товара *"
@@ -155,15 +155,14 @@ const form = reactive({
   product_is_active: true
 })
 
-// Загрузка категорий
 onMounted(async () => {
   if (categories.value.length === 0) {
     await catalogStore.fetchCategories()
   }
   
   if (isEdit.value && props.productId) {
-    // Загружаем данные товара для редактирования
     const product = await catalogStore.fetchProductById(props.productId)
+
     if (product) {
       Object.assign(form, {
         product_title: product.product_title,
@@ -176,7 +175,6 @@ onMounted(async () => {
         product_is_active: product.product_is_active
       })
     } else {
-      // Если товар не найден, переходим назад
       router.push('/dashboard/products')
     }
   }

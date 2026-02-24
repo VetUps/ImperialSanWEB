@@ -72,16 +72,6 @@
             </v-card-text>
           </v-card>
         </v-menu>
-        
-        <!-- Кнопка добавления товара -->
-        <v-btn
-          color="primary"
-          @click="goToProductCreate"
-          v-if="isAdmin"
-        >
-          <v-icon left>mdi-plus</v-icon>
-          Добавить товар
-        </v-btn>
       </v-col>
     </v-row>
     
@@ -90,9 +80,6 @@
       <v-card v-if="showFilters && showFiltersAndSort" class="mb-6">
         <v-card-text>
           <v-row>
-            <v-col cols="12" sm="6" md="3">
-            </v-col>
-            
             <v-col cols="12" sm="6" md="3">
               <v-text-field
                 v-model.number="filters.minPrice"

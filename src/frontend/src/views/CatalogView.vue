@@ -77,19 +77,6 @@
               Сантехника и инженерное оборудование
             </p>
           </v-col>
-          
-          <v-col cols="12" md="4" class="text-right" v-if="showFiltersAndSort">
-            <v-text-field
-              v-model="searchQuery"
-              placeholder="Поиск..."
-              prepend-icon="mdi-magnify"
-              variant="outlined"
-              density="compact"
-              clearable
-              hide-details
-              @click:clear="onSearchClear"
-            />
-          </v-col>
         </v-row>
         
         <v-alert
@@ -214,11 +201,6 @@ const getAvailabilityLabel = (value) => {
 const getCategoryName = (categoryId) => {
   const category = catalogStore.categories?.find(c => c.category_id === categoryId)
   return category?.category_name || categoryId
-}
-
-const onSearchClear = () => {
-  catalogStore.updateFilters({ search: '' })
-  catalogStore.fetchProducts()
 }
 
 if (catalogStore.products.length === 0) {

@@ -1,5 +1,7 @@
 import math
 
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
@@ -41,12 +43,29 @@ class ProductViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['category']  # Простая фильтрация по категории
 
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            instance.product_is_active = False
+            instance.save()
+
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Http404:
+            return Response(
+                {"detail": 'Товар для удаления не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
     def get_queryset(self):
         """
         Возвращает отфильтрованный и отсортированный кверисет продуктов
         """
-        # Базовый кверисет - только активные продукты
-        queryset = Product.objects.filter(product_is_active=True)
+        is_all = self.request.query_params.get('is_all')
+
+        if is_all:
+            queryset = Product.objects.all()
+        else:
+            queryset = Product.objects.filter(product_is_active=True)
 
         # === 1. Поиск (search) ===
         search = self.request.query_params.get('search')
