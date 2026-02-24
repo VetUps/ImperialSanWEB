@@ -27,26 +27,27 @@
           </v-col>
 
           <v-col cols="12" sm="6">
-            <v-text-field
-              v-model.number="form.product_price"
+            <v-number-input
+              v-model="form.product_price"
               label="Цена (₽) *"
-              type="number"
-              :rules="[rules.required, rules.positiveNumber]"
+              precision="2"
+              min="100"
+              max="100000000"
               variant="outlined"
               prefix="₽"
               required
-            ></v-text-field>
+            ></v-number-input>
           </v-col>
 
           <v-col cols="12" sm="6">
-            <v-text-field
-              v-model.number="form.product_quantity_in_stock"
+            <v-number-input
+              v-model="form.product_quantity_in_stock"
               label="Количество на складе *"
-              type="number"
-              :rules="[rules.required, rules.nonNegativeNumber]"
+              min="0"
+              max="1000000"
+              :rules="[rules.requiredOrZero, rules.nonNegativeNumber]"
               variant="outlined"
-              required
-            ></v-text-field>
+            ></v-number-input>
           </v-col>
 
           <v-col cols="12">
@@ -58,11 +59,19 @@
             ></v-text-field>
           </v-col>
 
+          <v-col cols="12" class="d-flex justify-center align-center">
+            <v-img
+              :src="imageUrl"
+              height="200"
+              width="200">
+            </v-img>
+          </v-col>
+
           <v-col cols="12" sm="6">
             <v-select
               v-model="form.category"
               :items="categories"
-              item-title="category_title"
+              item-title="full_path"
               item-value="category_id"
               label="Категория *"
               :rules="[rules.required]"
@@ -137,22 +146,31 @@ const formRef = ref(null)
 // Правила валидации
 const rules = {
   required: v => !!v || 'Обязательное поле',
+  requiredOrZero: value => {
+    if (value === 0) return true
+    return !!value || 'Обязательное поле'
+  },
   minLength: len => v => (v && v.length >= len) || `Минимум ${len} символов`,
   positiveNumber: v => v > 0 || 'Цена должна быть больше 0',
   nonNegativeNumber: v => v >= 0 || 'Количество не может быть отрицательным',
-  url: v => !v || /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(v) || 'Некорректный URL'
+  url: v => !v || /^(https?:\/\/|\/\/)?[^\s]+$/i.test(v) || 'Некорректный URL'
 }
 
 // Форма
 const form = reactive({
   product_title: '',
   product_description: '',
-  product_price: null,
+  product_price: 100,
   product_quantity_in_stock: null,
   product_image_url: '',
   category: null,
   product_brand_title: '',
   product_is_active: true
+})
+
+const imageUrl = computed(() => {
+  return form.product_image_url ||
+    'https://via.placeholder.com/300x200/2196F3/FFFFFF?text=Imperial+San'
 })
 
 onMounted(async () => {
@@ -167,7 +185,7 @@ onMounted(async () => {
       Object.assign(form, {
         product_title: product.product_title,
         product_description: product.product_description || '',
-        product_price: product.product_price,
+        product_price: Number(product.product_price),
         product_quantity_in_stock: product.product_quantity_in_stock,
         product_image_url: product.product_image_url || '',
         category: product.category,

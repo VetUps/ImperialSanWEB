@@ -53,9 +53,23 @@ class LoginSerializer(serializers.Serializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    full_path = serializers.SerializerMethodField()
+
     class Meta:
         model = Category
-        fields = ['category_id', 'category_title', 'category_description', 'parent_category_id']
+        fields = ['category_id', 'category_title', 'category_description', 'parent_category_id', 'full_path']
+
+    def get_full_path(self, obj):
+        path = []
+        current = obj
+
+        depth = 0
+        while current and depth < 10:
+            path.append(current.category_title)
+            current = current.parent_category
+            depth += 1
+
+        return '/'.join(reversed(path))
 
 
 class ProductSerializer(serializers.ModelSerializer):

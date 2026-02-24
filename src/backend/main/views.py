@@ -4,6 +4,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
 from django.db.models import Q
+from rest_framework.exceptions import NotFound
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import CustomUser, Product, Category
@@ -41,7 +42,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['category']  # Простая фильтрация по категории
+    filterset_fields = ['category']
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -67,7 +68,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         else:
             queryset = Product.objects.filter(product_is_active=True)
 
-        # === 1. Поиск (search) ===
+        # Поиск
         search = self.request.query_params.get('search')
         if search:
             queryset = queryset.filter(
@@ -76,7 +77,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 Q(product_brand_title__icontains=search)
             )
 
-        # === 2. Фильтрация по цене ===
+        # Цена
         min_price = self.request.query_params.get('min_price')
         max_price = self.request.query_params.get('max_price')
 
@@ -94,12 +95,12 @@ class ProductViewSet(viewsets.ModelViewSet):
             except ValueError:
                 pass
 
-        # === 3. Фильтрация по бренду ===
+        # Бренд
         brand = self.request.query_params.get('brand')
         if brand:
             queryset = queryset.filter(product_brand_title=brand)
 
-        # === 4. Фильтрация по наличию ===
+        # Наличие
         availability = self.request.query_params.get('availability')
         if availability:
             if availability == 'in_stock':
@@ -112,7 +113,6 @@ class ProductViewSet(viewsets.ModelViewSet):
                     product_quantity_in_stock__lte=10
                 )
 
-        # === 5. Сортировка ===
         sort = self.request.query_params.get('sort')
         if sort:
             sort_mapping = {
@@ -126,7 +126,25 @@ class ProductViewSet(viewsets.ModelViewSet):
             if order_by:
                 queryset = queryset.order_by(order_by)
 
+        print(f"Method: {self.request.method}, QuerySet count: {queryset.count()}")
         return queryset
+
+    def get_object(self):
+        # Возвращаем полный queryset не для list метода
+        if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
+            queryset = Product.objects.all()
+        else:
+            queryset = self.get_queryset()
+
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        obj = queryset.filter(**filter_kwargs).first()
+
+        if obj is None:
+            raise NotFound(detail='Товар не найден')
+
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_permissions(self):
         """

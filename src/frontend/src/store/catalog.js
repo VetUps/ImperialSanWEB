@@ -183,7 +183,7 @@ export const useCatalogStore = defineStore('catalog', {
 
       try {
         await api.delete(`/products/${id}/`)
-        this.fetchProducts()
+        this.fetchProducts({ is_all: true })
         return { success: true }
       } catch (error) {
         this.error = 'Ошибка удаления товара'

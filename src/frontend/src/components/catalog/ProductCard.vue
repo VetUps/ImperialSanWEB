@@ -118,7 +118,7 @@ const router = useRouter()
 
 const imageUrl = computed(() => {
   return props.product.product_image_url ||
-    'https://via.placeholder.com/300x200/2196F3/FFFFFF?text=Imperial+San'
+    'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSRo7whXykxuYBoms2CyYPY-Wf_eZD976fP5w&s'
 })
 
 const formatPrice = (price) => {

@@ -79,6 +79,7 @@
               <v-icon>mdi-pencil</v-icon>
             </v-btn>
             <v-btn
+              v-if="item.product_is_active"
               icon
               size="small"
               color="error"
@@ -86,6 +87,17 @@
               @click="confirmDelete(item)"
             >
               <v-icon>mdi-delete</v-icon>
+            </v-btn>
+
+            <v-btn
+              v-else
+              icon
+              size="small"
+              color="green"
+              variant="text"
+              @click="activateProduct(item)"
+            >
+              <v-icon>mdi-plus</v-icon>
             </v-btn>
           </template>
         </v-data-table>
@@ -95,15 +107,14 @@
     <!-- Диалог подтверждения удаления -->
     <v-dialog v-model="showDeleteDialog" max-width="400">
       <v-card>
-        <v-card-title class="text-h6">Подтверждение удаления</v-card-title>
+        <v-card-title class="text-h6">Подтверждение деактивации</v-card-title>
         <v-card-text>
-          Вы уверены, что хотите удалить товар "{{ productToDelete?.product_title }}"?
-          Это действие нельзя отменить.
+          Вы уверены, что хотите деактивировать товар "{{ productToDelete?.product_title }}"?
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn variant="text" @click="showDeleteDialog = false">Отмена</v-btn>
-          <v-btn color="error" @click="deleteProduct" :loading="loading">Удалить</v-btn>
+          <v-btn color="error" @click="deleteProduct" :loading="loading">Деактивировать</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -150,7 +161,8 @@ const formatPrice = (price) => {
 }
 
 onMounted(async () => {
-  await catalogStore.fetchProducts({ page: 1, is_all: true })
+  await catalogStore.clearFilters()
+  await catalogStore.fetchProducts({ is_all: true })
 })
 
 const goToCreate = () => {
@@ -164,6 +176,10 @@ const editProduct = (id) => {
 const confirmDelete = (product) => {
   productToDelete.value = product
   showDeleteDialog.value = true
+}
+
+const activateProduct = async (product) => {
+  const result = await catalogStore.updateProduct(product.product_id, { product_is_active: true })
 }
 
 const deleteProduct = async () => {

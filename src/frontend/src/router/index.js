@@ -81,12 +81,13 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   const { isAuthenticated, userRole } = authStore
-
+  /*
   console.log('Navigation guard triggered:')
   console.log('  To:', to.path)
   console.log('  From:', from.path)
   console.log('  isAuthenticated:', isAuthenticated)
   console.log('  userRole:', userRole)
+  */
 
   // Проверка на аутентификацию
   if (to.meta.requiresAuth && !isAuthenticated) {
