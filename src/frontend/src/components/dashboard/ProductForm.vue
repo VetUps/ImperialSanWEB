@@ -56,6 +56,7 @@
               label="URL изображения"
               variant="outlined"
               :rules="[rules.url]"
+              maxlength="255"
             ></v-text-field>
           </v-col>
 

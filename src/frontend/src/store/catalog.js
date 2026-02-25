@@ -22,7 +22,8 @@ export const useCatalogStore = defineStore('catalog', {
       maxPrice: null,
       brand: null,
       availability: null,
-      is_all: false
+      is_all: false,
+      sortById: false
     },
     sortBy: 'default'
   }),
@@ -50,7 +51,8 @@ export const useCatalogStore = defineStore('catalog', {
         brand: state.filters.brand || undefined,
         availability: state.filters.availability || undefined,
         sort: state.sortBy !== 'default' ? state.sortBy : undefined,
-        is_all: state.is_all
+        is_all: state.is_all,
+        sortById: state.sortById
       }
       
       // Удаляем пустые значения
@@ -92,10 +94,12 @@ export const useCatalogStore = defineStore('catalog', {
       try {
         // Объединяем параметры из store с возможными переопределениями
         const params = { ...this.apiParams, ...overrideParams }
+        console.log(params)
         
         const response = await api.get('/products/', { params })
         
         this.products = response.data.results || response.data
+
         this.pagination = {
           currentPage: response.data.current_page || 1,
           totalPages: response.data.total_pages || 1,

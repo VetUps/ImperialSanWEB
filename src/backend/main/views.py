@@ -62,11 +62,15 @@ class ProductViewSet(viewsets.ModelViewSet):
         Возвращает отфильтрованный и отсортированный кверисет продуктов
         """
         is_all = self.request.query_params.get('is_all')
+        sort_by_id = self.request.query_params.get('sortById')
 
         if is_all:
             queryset = Product.objects.all()
         else:
             queryset = Product.objects.filter(product_is_active=True)
+
+        if sort_by_id:
+            queryset = queryset.order_by('-product_id')
 
         # Поиск
         search = self.request.query_params.get('search')

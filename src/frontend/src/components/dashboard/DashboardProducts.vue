@@ -28,7 +28,8 @@
     <v-card>
       <v-card-text>
         <v-text-field
-          v-model="search"
+          v-model="searchQuery"
+          @update:model-value="handleSearch"
           prepend-icon="mdi-magnify"
           label="Поиск товаров"
           variant="outlined"
@@ -39,9 +40,9 @@
 
         <v-data-table
           :headers="headers"
-          :items="filteredProducts"
+          :items="products"
           :loading="loading"
-          :items-per-page="10"
+          :items-per-page="20"
           class="elevation-1"
         >
           <!-- Изображение -->
@@ -125,6 +126,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useCatalogStore } from '@/store/catalog'
 import { useRouter } from 'vue-router'
+import { debounce } from 'lodash'
 
 const router = useRouter()
 const catalogStore = useCatalogStore()
@@ -132,7 +134,11 @@ const catalogStore = useCatalogStore()
 const products = computed(() => catalogStore.products)
 const loading = computed(() => catalogStore.loading)
 
-const search = ref('')
+const searchQuery = computed({
+  get: () => catalogStore.filters.search,
+  set: (value) => catalogStore.updateFilters({ search: value })
+})
+
 const showDeleteDialog = ref(false)
 const productToDelete = ref(null)
 
@@ -147,6 +153,7 @@ const headers = [
   { title: 'Действия', key: 'actions', sortable: false }
 ]
 
+/*
 const filteredProducts = computed(() => {
   if (!search.value) return products.value
   const query = search.value.toLowerCase()
@@ -155,6 +162,12 @@ const filteredProducts = computed(() => {
     p.product_brand_title?.toLowerCase().includes(query)
   )
 })
+  */
+
+const handleSearch = debounce(() => {
+  catalogStore.fetchProducts({ is_all: true })
+  console.log(products)
+}, 500)
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('ru-RU').format(price)
@@ -162,7 +175,7 @@ const formatPrice = (price) => {
 
 onMounted(async () => {
   await catalogStore.clearFilters()
-  await catalogStore.fetchProducts({ is_all: true })
+  await catalogStore.fetchProducts({ is_all: true, sortById: true })
 })
 
 const goToCreate = () => {
@@ -185,6 +198,7 @@ const activateProduct = async (product) => {
 const deleteProduct = async () => {
   if (!productToDelete.value) return
   const result = await catalogStore.deleteProduct(productToDelete.value.product_id)
+  await catalogStore.fetchProducts({ is_all: true, sortById: true })
   if (result.success) {
     showDeleteDialog.value = false
   }
