@@ -104,7 +104,7 @@ class ProductSerializer(serializers.ModelSerializer):
 class ProductBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['product_id', 'product_title', 'product_image_url', 'product_brand_title']
+        fields = ['product_id', 'product_title', 'product_image_url', 'product_brand_title', 'product_price']
 
 
 class BasketPositionSerializer(serializers.ModelSerializer):

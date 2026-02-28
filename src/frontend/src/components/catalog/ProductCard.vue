@@ -83,8 +83,9 @@
         color="primary"
         variant="tonal"
         size="small"
-        @click.stop="addToCart"
+        @click.stop="handleAddToCart"
         :disabled="product.product_quantity_in_stock === 0 || !authStore.$state.isAuthenticated"
+        :loading="addingToCart"
       >
         <v-icon left>mdi-cart-plus</v-icon>
         В корзину
@@ -96,11 +97,14 @@
 </template>
 
 <script setup>
-import { computed, defineEmits, defineProps } from 'vue'
+import { computed, defineProps, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
+import { useCartStore } from '@/store/cart'
 
 const authStore = useAuthStore()
+const cartStore = useCartStore()
+const router = useRouter()
 
 const props = defineProps({
   product: {
@@ -113,8 +117,10 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['add-to-cart', 'toggle-favorite'])
-const router = useRouter()
+const addingToCart = ref(false)
+const showSnackbar = ref(false)
+const snackbarText = ref('')
+const snackbarColor = ref('success')
 
 const imageUrl = computed(() => {
   return props.product.product_image_url ||
@@ -129,9 +135,29 @@ const goToProduct = () => {
   router.push(`/product/${props.product.product_id}`)
 }
 
-const addToCart = (event) => {
+const handleAddToCart = async (event) => {
   event.stopPropagation()
-  emit('add-to-cart', props.product)
+  
+  if (!authStore.isAuthenticated) {
+    router.push('/login')
+    return
+  }
+  
+  addingToCart.value = true
+  
+  const result = await cartStore.addToCart(props.product.product_id, 1)
+  
+  addingToCart.value = false
+  
+  if (result.success) {
+    snackbarText.value = 'Товар добавлен в корзину'
+    snackbarColor.value = 'success'
+  } else {
+    snackbarText.value = result.error
+    snackbarColor.value = 'error'
+  }
+  
+  showSnackbar.value = true
 }
 </script>
 

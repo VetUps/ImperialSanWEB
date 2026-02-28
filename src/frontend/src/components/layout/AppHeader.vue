@@ -22,6 +22,29 @@
 
     <v-divider vertical class="mx-4"></v-divider>
 
+    <!-- Кнопка корзины (только для авторизованных) -->
+    <v-btn
+      v-if="isAuthenticated"
+      to="/cart"
+      icon
+      class="text-white mr-2"
+    >
+      <v-badge
+        :content="cartItemCount"
+        :model-value="cartItemCount > 0"
+        color="error"
+        location="bottom right"
+        offset-x="5"
+        offset-y="5"
+      >
+        <v-icon>mdi-cart</v-icon>
+      </v-badge>
+      
+      <v-tooltip activator="parent" location="bottom">
+        Корзина ({{ cartItemCount }} товаров)
+      </v-tooltip>
+    </v-btn>
+
     <!-- Информация пользователя -->
     <div v-if="isAuthenticated" class="d-flex align-center">
       <v-chip
@@ -90,15 +113,16 @@
 </template>
 
 <script setup>
-import { computed, defineEmits } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/store/auth'
+import { useCartStore } from '@/store/cart'
 import { storeToRefs } from 'pinia'
-import { useDisplay } from 'vuetify'
 
 const authStore = useAuthStore()
-const { isAuthenticated, fullName, userRole, initials } = storeToRefs(authStore)
+const cartStore = useCartStore()
 
-const emit = defineEmits(['toggle-drawer'])
+const { isAuthenticated, fullName, userRole, initials } = storeToRefs(authStore)
+const { itemCount: cartItemCount } = storeToRefs(cartStore)
 
 const navItems = computed(() => {
   const items = [
@@ -122,6 +146,11 @@ const userMenu = computed(() => {
       title: 'Мой профиль',
       icon: 'mdi-account',
       to: '/profile'
+    },
+    {
+      title: 'Мои заказы',
+      icon: 'mdi-clipboard-list',
+      to: '/orders'
     }
   ]
 
@@ -165,6 +194,13 @@ const getUserRoleText = computed(() => {
     case 'Admin': return 'Администратор'
     case 'Manager': return 'Менеджер'
     default: return 'Пользователь'
+  }
+})
+
+// Загружаем корзину при монтировании, если пользователь авторизован
+onMounted(() => {
+  if (isAuthenticated.value) {
+    cartStore.fetchBasket()
   }
 })
 </script>

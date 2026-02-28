@@ -70,6 +70,24 @@ const routes = [
         meta: { roles: ['Admin'] }
       },
     ]
+  },
+  {
+    path: '/cart',
+    name: 'cart',
+    component: () => import('@/views/CartView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/checkout',
+    name: 'checkout',
+    component: () => import('@/views/CheckoutView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/orders',
+    name: 'orders',
+    component: () => import('@/views/OrdersView.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

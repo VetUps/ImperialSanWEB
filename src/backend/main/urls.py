@@ -2,12 +2,15 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework.authtoken.views import obtain_auth_token
 from django.urls import get_resolver
-from .views import (UserViewSet, ProductViewSet, CategoryViewSet,)
+from .views import (UserViewSet, ProductViewSet,
+                    CategoryViewSet, BasketViewSet, OrderViewSet)
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename="user")
 router.register(r'products', ProductViewSet, basename="product")
 router.register(r'categories', CategoryViewSet)
+router.register(r'basket', BasketViewSet, basename='basket')
+router.register(r'orders', OrderViewSet, basename='orders')
 
 urlpatterns = router.urls + [
     #path('logout/', LogoutView.as_view(), name='logout'),
