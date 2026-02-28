@@ -1,17 +1,15 @@
 import math
 
 from django.http import Http404
-from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
 from django.db.models import Q
+from django.db import transaction
+from django.core.paginator import Paginator
 from rest_framework.exceptions import NotFound
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import CustomUser, Product, Category
-from .serializers import (UserSerializer, RegisterSerializer,
-                          LoginSerializer, ProductSerializer,
-                          CategorySerializer)
-from .permissions import IsAdmin, IsManagerOrAdmin
+
+from .permissions import IsAdmin
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -20,7 +18,13 @@ from rest_framework_simplejwt.tokens import AccessToken
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework.viewsets import ViewSet
 
-from .serializers import LoginSerializer, RegisterSerializer
+from .models import CustomUser, Product, Category, Basket, BasketPosition, Order, OrderPosition
+from .serializers import (
+    UserSerializer, LoginSerializer, RegisterSerializer,
+    CategorySerializer, ProductSerializer,
+    BasketSerializer, BasketPositionSerializer,
+    OrderSerializer, OrderCreateSerializer
+)
 
 
 class CustomPagination(PageNumberPagination):
@@ -209,3 +213,260 @@ class UserViewSet(ViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class BasketViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_or_create_basket(self, user):
+        basket, created = Basket.objects.get_or_create(user=user)
+        return basket
+
+    def list(self, request):
+        """Получить корзину текущего пользователя"""
+        basket = self.get_or_create_basket(request.user)
+        serializer = BasketSerializer(basket)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def add_item(self, request):
+        """Добавить товар в корзину"""
+        basket = self.get_or_create_basket(request.user)
+
+        product_id = request.data.get('product_id')
+        quantity = request.data.get('quantity', 1)
+
+        try:
+            product = Product.objects.get(product_id=product_id, product_is_active=True)
+        except Product.DoesNotExist:
+            return Response(
+                {'error': 'Товар не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Проверка наличия на складе
+        if product.product_quantity_in_stock < quantity:
+            return Response(
+                {
+                    'error': 'Недостаточно товара на складе',
+                    'available': product.product_quantity_in_stock
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Обновление или создание позиции
+        position, created = BasketPosition.objects.get_or_create(
+            basket=basket,
+            product=product,
+            defaults={'product_quantity': quantity}
+        )
+
+        if not created:
+            # Проверка суммарного количества
+            new_quantity = position.product_quantity + quantity
+            if new_quantity > product.product_quantity_in_stock:
+                return Response(
+                    {
+                        'error': 'Превышено доступное количество',
+                        'available': product.product_quantity_in_stock,
+                        'in_basket': position.product_quantity
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            position.product_quantity = new_quantity
+            position.save()
+
+        serializer = BasketSerializer(basket)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'])
+    def update_quantity(self, request):
+        """Изменить количество товара в корзине"""
+        basket = self.get_or_create_basket(request.user)
+
+        position_id = request.data.get('position_id')
+        new_quantity = request.data.get('quantity')
+
+        try:
+            position = basket.positions.get(basket_position_id=position_id)
+        except BasketPosition.DoesNotExist:
+            return Response(
+                {'error': 'Позиция не найдена в корзине'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if new_quantity < 1:
+            position.delete()
+        else:
+            # Проверка наличия на складе
+            if new_quantity > position.product.product_quantity_in_stock:
+                return Response(
+                    {
+                        'error': 'Недостаточно товара на складе',
+                        'available': position.product.product_quantity_in_stock
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            position.product_quantity = new_quantity
+            position.save()
+
+        serializer = BasketSerializer(basket)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def remove_item(self, request):
+        """Удалить товар из корзины"""
+        basket = self.get_or_create_basket(request.user)
+
+        position_id = request.data.get('position_id')
+
+        try:
+            position = basket.positions.get(basket_position_id=position_id)
+            position.delete()
+        except BasketPosition.DoesNotExist:
+            return Response(
+                {'error': 'Позиция не найдена'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = BasketSerializer(basket)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def clear(self, request):
+        """Очистить корзину"""
+        basket = self.get_or_create_basket(request.user)
+        basket.positions.all().delete()
+
+        serializer = BasketSerializer(basket)
+        return Response(serializer.data)
+
+
+class OrderViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        """Список заказов пользователя с пагинацией"""
+        orders = Order.objects.filter(user=request.user)
+
+        # Пагинация
+        page = request.query_params.get('page', 1)
+        per_page = request.query_params.get('per_page', 10)
+
+        paginator = Paginator(orders, per_page)
+        page_obj = paginator.get_page(page)
+
+        serializer = OrderSerializer(page_obj.object_list, many=True)
+
+        return Response({
+            'results': serializer.data,
+            'count': paginator.count,
+            'num_pages': paginator.num_pages,
+            'current_page': page_obj.number,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+
+    def retrieve(self, request, pk=None):
+        """Получить детали заказа"""
+        try:
+            order = Order.objects.get(order_id=pk, user=request.user)
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Заказ не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+    @transaction.atomic
+    def create(self, request):
+        """Оформить заказ из корзины"""
+        # Проверка данных
+        create_serializer = OrderCreateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        create_serializer.is_valid(raise_exception=True)
+
+        user = request.user
+
+        try:
+            basket = user.basket
+        except Basket.DoesNotExist:
+            return Response(
+                {'error': 'Корзина не найдена'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        positions = basket.positions.all()
+        if not positions.exists():
+            return Response(
+                {'error': 'Корзина пуста'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Финальная проверка остатков и расчет цены
+        total_price = 0
+        for pos in positions:
+            product = pos.product
+            if pos.product_quantity > product.product_quantity_in_stock:
+                return Response(
+                    {
+                        'error': f'Недостаточно товара "{product.product_title}"',
+                        'available': product.product_quantity_in_stock
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            total_price += pos.product_price * pos.product_quantity
+
+        # Создание заказа
+        order = Order.objects.create(
+            user=user,
+            delivery_address=create_serializer.validated_data['delivery_address'],
+            payment_method=create_serializer.validated_data['payment_method'],
+            user_comment=create_serializer.validated_data.get('user_comment', ''),
+            price=total_price
+        )
+
+        # Создание позиций заказа и списание со склада
+        for pos in positions:
+            OrderPosition.objects.create(
+                order=order,
+                product=pos.product,
+                product_quantity=pos.product_quantity,
+                product_price_in_moment=pos.product_price
+            )
+
+            # Списание со склада
+            product = pos.product
+            product.product_quantity_in_stock -= pos.product_quantity
+            product.save()
+
+        # Очистка корзины
+        positions.delete()
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Отмена заказа"""
+        try:
+            order = Order.objects.get(order_id=pk, user=request.user)
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Заказ не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            order.cancel()
+            serializer = OrderSerializer(order)
+            return Response(serializer.data)
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )

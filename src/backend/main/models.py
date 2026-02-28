@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
+from django.core.validators import MinValueValidator
 
 
 class UserManager(BaseUserManager):
@@ -83,4 +84,142 @@ class Product(models.Model):
     class Meta:
         db_table = 'products'
 
-# Остальные модели (Basket, BasketPosition, Order, OrderPosition)...
+
+class Basket(models.Model):
+    basket_id = models.AutoField(primary_key=True)
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='basket',
+        db_column='user_id'
+    )
+
+    class Meta:
+        db_table = 'basket'
+
+    def __str__(self):
+        return f"Корзина #{self.basket_id} - {self.user}"
+
+    @property
+    def total_price(self):
+        return sum(
+            pos.product_price * pos.product_quantity
+            for pos in self.positions.all()
+        )
+
+    @property
+    def total_items(self):
+        return sum(pos.product_quantity for pos in self.positions.all())
+
+
+class BasketPosition(models.Model):
+    basket_position_id = models.AutoField(primary_key=True)
+    basket = models.ForeignKey(
+        Basket,
+        on_delete=models.CASCADE,
+        related_name='positions',
+        db_column='basket_id'
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        db_column='product_id'
+    )
+    product_quantity = models.IntegerField(
+        default=1,
+        validators=[MinValueValidator(1)]
+    )
+
+    class Meta:
+        db_table = 'basket_position'
+        unique_together = [['basket', 'product']]
+
+    def __str__(self):
+        return f"{self.product.product_title} x{self.product_quantity}"
+
+    @property
+    def product_price(self):
+        return self.product.product_price
+
+
+class Order(models.Model):
+    ORDER_STATUS_CHOICES = [
+        ('В обработке', 'В обработке'),
+        ('Собирается', 'Собирается'),
+        ('Собран', 'Собран'),
+        ('В пути', 'В пути'),
+        ('Доставлен', 'Доставлен'),
+        ('Отменён', 'Отменён'),
+    ]
+
+    PAYMENT_METHOD_CHOICES = [
+        ('Онлайн', 'Онлайн'),
+        ('Наличными', 'Наличными'),
+    ]
+
+    order_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='orders',
+        db_column='user_id'
+    )
+    date_of_create = models.DateTimeField(auto_now_add=True)
+    order_status = models.CharField(
+        max_length=20,
+        choices=ORDER_STATUS_CHOICES,
+        default='В обработке'
+    )
+    delivery_address = models.TextField()
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES
+    )
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    user_comment = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'order'
+        ordering = ['-date_of_create']
+
+    def __str__(self):
+        return f"Заказ #{self.order_id} - {self.order_status}"
+
+    def cancel(self):
+        """Отмена заказа с возвратом товаров на склад"""
+        if self.order_status != 'В обработке':
+            raise ValueError("Можно отменить только заказ 'В обработке'")
+
+        # Возврат товаров на склад
+        for position in self.positions.all():
+            product = position.product
+            product.product_quantity_in_stock += position.product_quantity
+            product.save()
+
+        self.order_status = 'Отменён'
+        self.save()
+
+
+class OrderPosition(models.Model):
+    order_position_id = models.AutoField(primary_key=True)
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='positions',
+        db_column='order_id'
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        db_column='product_id'
+    )
+    product_quantity = models.IntegerField(default=1)
+    product_price_in_moment = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        db_table = 'order_position'
+
+    def __str__(self):
+        return f"{self.product.product_title if self.product else 'Удалённый товар'} x{self.product_quantity}"
