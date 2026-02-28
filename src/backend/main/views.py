@@ -3,7 +3,7 @@ import math
 from django.http import Http404
 from rest_framework import viewsets, permissions
 from django.db.models import Q
-from django.db import transaction
+from django.db import transaction, models
 from django.core.paginator import Paginator
 from rest_framework.exceptions import NotFound
 from rest_framework.pagination import PageNumberPagination
@@ -23,7 +23,8 @@ from .serializers import (
     UserSerializer, LoginSerializer, RegisterSerializer,
     CategorySerializer, ProductSerializer,
     BasketSerializer, BasketPositionSerializer,
-    OrderSerializer, OrderCreateSerializer
+    OrderSerializer, OrderCreateSerializer,
+    AdminOrderSerializer, OrderStatusUpdateSerializer
 )
 
 
@@ -470,3 +471,155 @@ class OrderViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class AdminOrderViewSet(viewsets.ViewSet):
+    """Управление заказами для администраторов"""
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        queryset = Order.objects.all().select_related('user').prefetch_related(
+            'positions', 'positions__product'
+        )
+
+        # Фильтрация по статусу
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(order_status=status_filter)
+
+        # Фильтрация по пользователю
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        # Поиск по ID заказа или email пользователя
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                models.Q(order_id__icontains=search) |
+                models.Q(user__user_mail__icontains=search) |
+                models.Q(user__user_surname__icontains=search)
+            )
+
+        return queryset.order_by('-date_of_create')
+
+    def list(self, request):
+        """Список всех заказов с пагинацией и фильтрацией"""
+        queryset = self.get_queryset()
+
+        # Пагинация
+        page = request.query_params.get('page', 1)
+        per_page = request.query_params.get('per_page', 20)
+
+        paginator = Paginator(queryset, per_page)
+        page_obj = paginator.get_page(page)
+
+        serializer = AdminOrderSerializer(page_obj.object_list, many=True)
+
+        # Статистика для дашборда
+        stats = {
+            'total': Order.objects.count(),
+            'in_progress': Order.objects.filter(
+                order_status__in=['В обработке', 'Собирается', 'Собран', 'В пути']).count(),
+            'delivered': Order.objects.filter(order_status='Доставлен').count(),
+            'cancelled': Order.objects.filter(order_status='Отменён').count()
+        }
+
+        return Response({
+            'results': serializer.data,
+            'count': paginator.count,
+            'num_pages': paginator.num_pages,
+            'current_page': page_obj.number,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'stats': stats
+        })
+
+    def retrieve(self, request, pk=None):
+        """Детали заказа"""
+        try:
+            order = Order.objects.select_related('user').prefetch_related(
+                'positions', 'positions__product'
+            ).get(order_id=pk)
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Заказ не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = AdminOrderSerializer(order)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['patch'])
+    def update_status(self, request, pk=None):
+        """Изменение статуса заказа"""
+        try:
+            order = Order.objects.get(order_id=pk)
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Заказ не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = OrderStatusUpdateSerializer(
+            order,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+
+        old_status = order.order_status
+        new_status = serializer.validated_data['order_status']
+
+        # Если отмена - возвращаем товары на склад
+        if new_status == 'Отменён' and old_status != 'Отменён':
+            try:
+                order.cancel()
+            except ValueError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            order.order_status = new_status
+            order.save()
+
+        return Response(AdminOrderSerializer(order).data)
+
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """Последние 10 заказов для дашборда"""
+        orders = Order.objects.select_related('user').order_by('-date_of_create')[:10]
+        serializer = AdminOrderSerializer(orders, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Статистика заказов"""
+        from django.db.models import Sum, Count, Avg
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # За последние 30 дней
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+
+        stats = {
+            'total_orders': Order.objects.count(),
+            'total_revenue': Order.objects.filter(
+                order_status__in=['Доставлен', 'В пути', 'Собран', 'Собирается']
+            ).aggregate(total=Sum('price'))['total'] or 0,
+            'recent_orders': Order.objects.filter(date_of_create__gte=thirty_days_ago).count(),
+            'recent_revenue': Order.objects.filter(
+                date_of_create__gte=thirty_days_ago,
+                order_status__in=['Доставлен', 'В пути', 'Собран', 'Собирается']
+            ).aggregate(total=Sum('price'))['total'] or 0,
+            'avg_order_value': Order.objects.filter(
+                order_status__in=['Доставлен', 'В пути', 'Собран', 'Собирается']
+            ).aggregate(avg=Avg('price'))['avg'] or 0,
+            'by_status': {
+                status: Order.objects.filter(order_status=status).count()
+                for status, _ in Order.ORDER_STATUS_CHOICES
+            }
+        }
+
+        return Response(stats)

@@ -199,3 +199,74 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 )
 
         return data
+
+
+class AdminOrderSerializer(serializers.ModelSerializer):
+    """Расширенный сериализатор для администраторов"""
+    positions = OrderPositionSerializer(many=True, read_only=True)
+    status_display = serializers.SerializerMethodField()
+    can_cancel = serializers.SerializerMethodField()
+    user_info = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'order_id', 'date_of_create', 'order_status', 'status_display',
+            'delivery_address', 'payment_method', 'price', 'user_comment',
+            'positions', 'can_cancel', 'user_info'
+        ]
+
+    def get_user_info(self, obj):
+        print(obj.user)
+        if obj.user:
+            return {
+                'user_id': obj.user.user_id,
+                'full_name': f"{obj.user.user_surname} {obj.user.user_name}",
+                'email': obj.user.user_mail,
+                'phone': getattr(obj.user, 'user_phone', None)
+            }
+        return None
+
+    def get_status_display(self, obj):
+        status_colors = {
+            'В обработке': 'warning',
+            'Собирается': 'info',
+            'Собран': 'primary',
+            'В пути': 'primary',
+            'Доставлен': 'success',
+            'Отменён': 'error',
+        }
+        return {
+            'status': obj.order_status,
+            'color': status_colors.get(obj.order_status, 'grey')
+        }
+
+    def get_can_cancel(self, obj):
+        return obj.order_status == 'В обработке'
+
+
+class OrderStatusUpdateSerializer(serializers.ModelSerializer):
+    """Сериализатор для обновления статуса заказа"""
+
+    class Meta:
+        model = Order
+        fields = ['order_status']
+
+    def validate_order_status(self, value):
+        valid_transitions = {
+            'В обработке': ['Собирается', 'Отменён'],
+            'Собирается': ['Собран', 'Отменён'],
+            'Собран': ['В пути'],
+            'В пути': ['Доставлен'],
+            'Доставлен': [],
+            'Отменён': []
+        }
+
+        current_status = self.instance.order_status if self.instance else None
+
+        if current_status and value not in valid_transitions.get(current_status, []):
+            raise serializers.ValidationError(
+                f"Нельзя изменить статус '{current_status}' на '{value}'"
+            )
+
+        return value
